@@ -1,0 +1,108 @@
+<!-- Hero Section -->
+<div class="section-header text-center">
+    <h1><i class="fas fa-robot me-3"></i>AIpplicant</h1>
+    <p class="lead mb-0">AI-Powered Resume Analysis & Candidate Ranking System</p>
+    <p class="mb-0">Streamline your recruitment process with advanced NLP and machine learning</p>
+</div>
+
+<!-- Upload Resume Section -->
+<section id="upload-section" class="mb-5">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h3 class="card-title mb-0"><i class="fas fa-upload me-2"></i>Upload Resume</h3>
+                </div>
+                <div class="card-body">
+                    <div class="upload-area" id="uploadArea">
+                        <i class="fas fa-cloud-upload-alt fa-3x text-primary mb-3"></i>
+                        <h4>Drop resume here or click to select</h4>
+                        <p class="text-muted">Supports PDF, DOCX, and TXT formats (max 16MB)</p>
+                        <input type="file" id="resumeFile" accept=".pdf,.docx,.txt" style="display: none;">
+                        <button class="btn btn-primary" onclick="document.getElementById('resumeFile').click()">
+                            <i class="fas fa-file-upload me-2"></i>Select File
+                        </button>
+                    </div>
+                    <div class="loading mt-3">
+                        <div class="text-center">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p class="mt-2">Parsing resume...</p>
+                        </div>
+                    </div>
+                    <div id="uploadResult" class="mt-3"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Create Job Section -->
+<section id="job-section" class="mb-5">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h3 class="card-title mb-0"><i class="fas fa-briefcase me-2"></i>Create Job Posting</h3>
+                </div>
+                <div class="card-body">
+                    <form id="jobForm">
+                        <div class="mb-3">
+                            <label for="jobTitle" class="form-label">Job Title</label>
+                            <input type="text" class="form-control" id="jobTitle" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="jobDescription" class="form-label">Job Description</label>
+                            <textarea class="form-control" id="jobDescription" rows="4"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="requiredSkills" class="form-label">Required Skills (comma-separated)</label>
+                            <input type="text" class="form-control" id="requiredSkills"
+                                   placeholder="e.g. Python, React, MongoDB, Machine Learning">
+                        </div>
+                        <div class="mb-3">
+                            <label for="experienceYears" class="form-label">Minimum Experience (years)</label>
+                            <input type="number" class="form-control" id="experienceYears" min="0" value="0">
+                        </div>
+                        <div class="mb-3">
+                            <label for="educationReq" class="form-label">Education Requirements</label>
+                            <input type="text" class="form-control" id="educationReq"
+                                   placeholder="e.g. Bachelor's in Computer Science">
+                        </div>
+                        <button type="submit" class="btn btn-info">
+                            <i class="fas fa-plus me-2"></i>Create Job
+                        </button>
+                    </form>
+                    <div id="jobResult" class="mt-3"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- View Candidates Section -->
+<section id="candidates-section" class="mb-5">
+    <div class="card">
+        <div class="card-header bg-warning text-dark">
+            <h3 class="card-title mb-0"><i class="fas fa-users me-2"></i>All Candidates</h3>
+        </div>
+        <div class="card-body">
+            <button class="btn btn-warning mb-3" onclick="loadCandidates()">
+                <i class="fas fa-refresh me-2"></i>Load Candidates
+            </button>
+            <div id="candidatesList"></div>
+        </div>
+    </div>
+</section>
+
+<!-- Ranking Section -->
+<section id="ranking-section" class="mb-5">
+    <div class="card">
+        <div class="card-header bg-danger text-white">
+            <h3 class="card-title mb-0"><i class="fas fa-trophy me-2"></i>Candidate Ranking</h3>
+        </div>
+        <div class="card-body">
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="jobSelect" class="form-label">

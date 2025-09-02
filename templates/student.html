@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Student Dashboard - AIpplicant</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: #f4f8fb;
+            margin: 0;
+            padding: 0;
+        }
+
+        .header {
+            background: #004aad;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 40px auto;
+            padding: 30px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+        }
+
+        h2 {
+            text-align: center;
+            color: #004aad;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .custom-upload {
+            border: 2px dashed #004aad;
+            background-color: #eef4ff;
+            padding: 30px;
+            text-align: center;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+
+        .custom-upload:hover {
+            background-color: #dcecff;
+        }
+
+        button {
+            background: #004aad;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+
+        button:hover {
+            background: #00347a;
+        }
+
+        .results {
+            margin-top: 40px;
+        }
+
+        .results h3 {
+            color: #28a745;
+        }
+
+        .score-bar {
+            height: 20px;
+            background: #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .score-fill {
+            height: 100%;
+            background: #28a745;
+            border-radius: 10px;
+            transition: width 0.5s ease;
+        }
+
+        ul {
+            list-style: square;
+            padding-left: 20px;
+            color: #444;
+        }
+
+        .section {
+            margin-bottom: 30px;
+        }
+
+        .logout {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            color: white;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .logout:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <a class="logout" href="/logout">Logout</a>
+        <h1>AIpplicant Student Dashboard</h1>
+        <p>Upload your resume and get AI-powered feedback</p>
+    </div>
+
+    <div class="container">
+        <h2>Upload Resume (.pdf or .txt)</h2>
+
+        <form method="POST" action="/student" enctype="multipart/form-data">
+            <label class="custom-upload">
+                Click to choose your resume
+                <input type="file" name="resume" required onchange="updateFileName(this)">
+                <p id="file-name"></p>
+            </label>
+            <button type="submit">Analyze Resume</button>
+        </form>
+
+        {% if score %}
+        <div class="results">
+            <div class="section">
+                <h3>✅ Resume Score: {{ score }}%</h3>
+                <div class="score-bar">
+                    <div class="score-fill" style="width: {{ score }}%;"></div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h4>🎯 Matched Skills:</h4>
+                <ul>
+                    {% for kw in matched %}
+                        <li>{{ kw }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+
+            <div class="section">
+                <h4>⚠️ Missing Skills:</h4>
+                <ul>
+                    {% for miss in missing %}
+                        <li>{{ miss }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+
+            <div class="section">
+                <h4>📝 Grammar / Spelling Suggestions ({{ grammar_errors }})</h4>
+                <ul>
+                    {% for s in suggestions %}
+                        <li><strong>Error:</strong> {{ s.error }}<br><strong>Suggestion:</strong> {{ s.message }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+
+            <div class="section">
+                <h4>📂 Resume Sections Found:</h4>
+                <ul>
+                    {% for sec in sections %}
+                        <li>{{ sec }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+
+            <div class="section">
+                <h4>🔍 Missing Sections:</h4>
+                <ul>
+                    {% for miss_sec in missing_sections %}
+                        <li>{{ miss_sec }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <script>
+        function updateFileName(input) {
+            const fileName = document.getElementById("file-name");
+            if (input.files.length > 0) {
+                fileName.textContent = "Selected: " + input.files[0].name;
+            } else {
+                fileName.textContent = "";
+            }
+        }
+    </script>
+
+</body>
+</html>

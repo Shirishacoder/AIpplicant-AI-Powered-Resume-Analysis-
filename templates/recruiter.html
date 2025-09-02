@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Recruiter Dashboard - AIpplicant</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: #f4f8fb;
+            margin: 0;
+            padding: 0;
+        }
+
+        .header {
+            background: #004aad;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            position: relative;
+        }
+
+        .logout {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            color: white;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .logout:hover {
+            text-decoration: underline;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 40px auto;
+            padding: 30px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+        }
+
+        h2 {
+            text-align: center;
+            color: #004aad;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .custom-upload {
+            border: 2px dashed #004aad;
+            background-color: #eef4ff;
+            padding: 30px;
+            text-align: center;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+
+        .custom-upload:hover {
+            background-color: #dcecff;
+        }
+
+        button {
+            background: #004aad;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+
+        button:hover {
+            background: #00347a;
+        }
+
+        table {
+            width: 100%;
+            margin-top: 30px;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #ccc;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f1f4f9;
+            color: #333;
+        }
+
+        .highlight {
+            background-color: #e6fff2;
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <a class="logout" href="/logout">Logout</a>
+    <h1>AIpplicant Recruiter Dashboard</h1>
+    <p>Upload and Analyze Candidate Resumes</p>
+</div>
+
+<div class="container">
+    <h2>Upload Resumes (PDF or TXT)</h2>
+    <form method="POST" action="/recruiter" enctype="multipart/form-data">
+        <label class="custom-upload">
+            Click to select multiple resumes
+            <input type="file" name="resumes" multiple required onchange="updateFileNames(this)">
+            <p id="file-names"></p>
+        </label>
+        <button type="submit">Analyze Resumes</button>
+    </form>
+
+    {% if candidates %}
+    <h2>Top Candidates</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Score (%)</th>
+                <th>Matched Keywords</th>
+                <th>Grammar Errors</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for c in candidates %}
+            <tr class="{% if c.score > 80 %}highlight{% endif %}">
+                <td>{{ c.name }}</td>
+                <td>{{ c.score }}</td>
+                <td>{{ c.matched_keywords | join(', ') }}</td>
+                <td>{{ c.grammar_errors }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+</div>
+
+<script>
+    function updateFileNames(input) {
+        const names = Array.from(input.files).map(f => f.name).join(', ');
+        document.getElementById('file-names').textContent = names;
+    }
+</script>
+
+</body>
+</html>
