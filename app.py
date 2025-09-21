@@ -1,501 +1,272 @@
-# AIpplicant - AI-Powered Resume Analysis System
-# Main application file (app.py)
-
-from flask import Flask, request, jsonify, render_template, redirect, url_for
-from werkzeug.utils import secure_filename
 import os
+from concurrent.futures import ThreadPoolExecutor
+from flask import Flask, render_template, request, redirect, session, url_for, flash
+import fitz  # PyMuPDF
 import spacy
-import pymongo
-from pymongo import MongoClient
-import PyPDF2
-import docx
+import language_tool_python
 import re
-from datetime import datetime
-from bson import ObjectId
-import json
-from typing import Dict, List, Tuple
-import logging
+from transformers import AutoModelForCausalLM, AutoTokenizer
+import torch
 
-# Initialize Flask app
+# ---------------- FLASK SETUP ---------------- #
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your-secret-key-here'
-app.config['UPLOAD_FOLDER'] = 'uploads'
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+app.secret_key = 'super_secret_key'
 
-# Ensure upload directory exists
-os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+# ---------------- NLP SETUP ---------------- #
+nlp = spacy.load("en_core_web_sm")
+tool = language_tool_python.LanguageTool('en-US')
 
-# Initialize logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# ---------------- TRANSFORMERS SETUP ---------------- #
+tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-neo-125M")
+model = AutoModelForCausalLM.from_pretrained("EleutherAI/gpt-neo-125M")
+device = "cuda" if torch.cuda.is_available() else "cpu"
+model.to(device)
 
-# Load spaCy model
-try:
-    nlp = spacy.load("en_core_web_sm")
-except IOError:
-    logger.error("spaCy model 'en_core_web_sm' not found. Install with: python -m spacy download en_core_web_sm")
-    nlp = None
+# ---------------- KEYWORDS & SECTIONS ---------------- #
+REQUIRED_KEYWORDS = {
+    "python", "java", "c", "c++", "html", "css", "javascript", "php", "sql", "mysql",
+    "mongodb", "react", "angular", "flutter", "firebase", "node.js", "django", "flask",
+    "data structures", "algorithms", "nlp", "data science", "excel", "github", "linux",
+    "teamwork", "communication", "problem solving", "leadership"
+}
+EXPECTED_SECTIONS = ["objective", "education", "projects", "skills", "experience", "certifications", "internship", "declaration"]
 
-# MongoDB connection
-try:
-    client = MongoClient('mongodb://localhost:27017/')
-    db = client['aipplicant']
-    resumes_collection = db['resumes']
-    jobs_collection = db['jobs']
-    logger.info("Connected to MongoDB successfully")
-except Exception as e:
-    logger.error(f"MongoDB connection failed: {e}")
-    client = None
-    db = None
+# ---------------- DEMO USERS ---------------- #
+users = {
+    "student@gmail.com": {"password": "123", "role": "student"},
+    "recruiter@gmail.com": {"password": "123", "role": "recruiter"}
+}
 
-class ResumeParser:
-    def _init_(self, nlp_model):
-        self.nlp = nlp_model
-        
-        # Predefined skill categories and keywords
-        self.skill_keywords = {
-            'programming': ['python', 'java', 'javascript', 'c++', 'c#', 'php', 'ruby', 'go', 'rust', 'swift', 
-                          'kotlin', 'scala', 'r', 'matlab', 'sql', 'html', 'css', 'typescript'],
-            'frameworks': ['react', 'angular', 'vue', 'django', 'flask', 'spring', 'node.js', 'express', 
-                         'laravel', 'rails', 'asp.net', 'bootstrap', 'jquery', 'tensorflow', 'pytorch'],
-            'databases': ['mysql', 'postgresql', 'mongodb', 'sqlite', 'oracle', 'redis', 'cassandra', 
-                        'elasticsearch', 'neo4j', 'dynamodb'],
-            'cloud': ['aws', 'azure', 'gcp', 'docker', 'kubernetes', 'terraform', 'jenkins', 'ansible'],
-            'tools': ['git', 'jira', 'confluence', 'slack', 'trello', 'photoshop', 'illustrator', 'figma'],
-            'soft_skills': ['leadership', 'communication', 'teamwork', 'problem solving', 'analytical', 
-                          'creative', 'adaptable', 'organized', 'detail-oriented']
-        }
-        
-        # Education patterns
-        self.education_patterns = [
-            r'\b(?:bachelor|master|phd|doctorate|associate|diploma|certificate)\b.*?(?:in|of)\s+([^\n.]+)',
-            r'\b(computer science|engineering|mathematics|physics|chemistry|biology|business|marketing|finance)\b',
-            r'\b(university|college|institute|school)\s+of\s+([^\n.]+)',
-            r'\b([a-z\s]+)\s+(?:university|college|institute)\b'
-        ]
-        
-        # Experience patterns
-        self.experience_patterns = [
-            r'(\d{1,2}[\+]?)\s*(?:years?|yrs?)\s*(?:of\s*)?(?:experience|exp)',
-            r'(?:from|since)\s*(\d{4})\s*(?:to|[-–—])\s*(?:(\d{4})|present|current)',
-            r'(\d{4})\s*[-–—]\s*(?:(\d{4})|present|current)'
-        ]
+# ---------------- HELPER FUNCTIONS ---------------- #
+def clean_resume_text(text, max_length=1500):
+    lines = text.splitlines()
+    seen = set()
+    cleaned_lines = []
+    for line in lines:
+        line_lower = line.lower().strip()
+        if line_lower and line_lower not in seen:
+            seen.add(line_lower)
+            cleaned_lines.append(line)
+        if len(" ".join(cleaned_lines)) > max_length:
+            break
+    return "\n".join(cleaned_lines)
 
-    def extract_text_from_pdf(self, file_path: str) -> str:
-        """Extract text from PDF file"""
-        try:
-            with open(file_path, 'rb') as file:
-                pdf_reader = PyPDF2.PdfReader(file)
-                text = ""
-                for page in pdf_reader.pages:
-                    text += page.extract_text() + "\n"
-                return text
-        except Exception as e:
-            logger.error(f"Error extracting text from PDF: {e}")
-            return ""
+def extract_text_from_pdf(file, max_chars=5000):
+    text = ""
+    pdf = fitz.open(stream=file.read(), filetype="pdf")
+    for page in pdf:
+        text += page.get_text()
+        if len(text) > max_chars:
+            text = text[:max_chars]
+            break
+    return text
 
-    def extract_text_from_docx(self, file_path: str) -> str:
-        """Extract text from DOCX file"""
-        try:
-            doc = docx.Document(file_path)
-            text = ""
-            for paragraph in doc.paragraphs:
-                text += paragraph.text + "\n"
-            return text
-        except Exception as e:
-            logger.error(f"Error extracting text from DOCX: {e}")
-            return ""
-
-    def extract_text_from_txt(self, file_path: str) -> str:
-        """Extract text from TXT file"""
-        try:
-            with open(file_path, 'r', encoding='utf-8') as file:
-                return file.read()
-        except Exception as e:
-            logger.error(f"Error extracting text from TXT: {e}")
-            return ""
-
-    def extract_contact_info(self, text: str) -> Dict:
-        """Extract contact information from resume text"""
-        contact_info = {}
-        
-        # Email extraction
-        email_pattern = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
-        emails = re.findall(email_pattern, text)
-        contact_info['email'] = emails[0] if emails else None
-        
-        # Phone extraction
-        phone_pattern = r'(\+\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}'
-        phones = re.findall(phone_pattern, text)
-        contact_info['phone'] = ''.join(phones[0]) if phones else None
-        
-        # LinkedIn extraction
-        linkedin_pattern = r'linkedin\.com/in/([A-Za-z0-9-]+)'
-        linkedin = re.search(linkedin_pattern, text)
-        contact_info['linkedin'] = linkedin.group(0) if linkedin else None
-        
-        # GitHub extraction
-        github_pattern = r'github\.com/([A-Za-z0-9-]+)'
-        github = re.search(github_pattern, text)
-        contact_info['github'] = github.group(0) if github else None
-        
-        return contact_info
-
-    def extract_skills(self, text: str) -> Dict[str, List[str]]:
-        """Extract skills from resume text"""
-        text_lower = text.lower()
-        extracted_skills = {}
-        
-        for category, skills in self.skill_keywords.items():
-            found_skills = []
-            for skill in skills:
-                if skill.lower() in text_lower:
-                    found_skills.append(skill)
-            extracted_skills[category] = found_skills
-        
-        # Extract additional skills using NLP
-        if self.nlp:
-            doc = self.nlp(text)
-            additional_skills = []
-            for ent in doc.ents:
-                if ent.label_ in ['ORG', 'PRODUCT', 'TECH']:
-                    additional_skills.append(ent.text)
-            extracted_skills['additional'] = list(set(additional_skills))
-        
-        return extracted_skills
-
-    def extract_education(self, text: str) -> List[Dict]:
-        """Extract education information from resume text"""
-        education = []
-        
-        for pattern in self.education_patterns:
-            matches = re.finditer(pattern, text, re.IGNORECASE)
-            for match in matches:
-                education.append({
-                    'text': match.group(0),
-                    'field': match.group(1) if match.lastindex and match.lastindex >= 1 else None
-                })
-        
-        return education
-
-    def extract_experience(self, text: str) -> Dict:
-        """Extract experience information from resume text"""
-        experience = {'years': 0, 'positions': []}
-        
-        # Extract years of experience
-        for pattern in self.experience_patterns:
-            matches = re.finditer(pattern, text, re.IGNORECASE)
-            for match in matches:
-                if 'years' in pattern or 'yrs' in pattern:
-                    try:
-                        years = int(match.group(1).replace('+', ''))
-                        experience['years'] = max(experience['years'], years)
-                    except (ValueError, AttributeError):
-                        continue
-                else:
-                    # Calculate years from date ranges
-                    try:
-                        start_year = int(match.group(1))
-                        end_year = int(match.group(2)) if match.group(2) else datetime.now().year
-                        years = end_year - start_year
-                        experience['years'] = max(experience['years'], years)
-                    except (ValueError, AttributeError, TypeError):
-                        continue
-        
-        # Extract job positions (simplified)
-        position_patterns = [
-            r'\b(?:senior|junior|lead|principal|chief)?\s*(?:software|web|mobile|data|machine learning|ai|devops|full stack)?\s*(?:developer|engineer|analyst|scientist|manager|director|architect)\b'
-        ]
-        
-        for pattern in position_patterns:
-            matches = re.finditer(pattern, text, re.IGNORECASE)
-            for match in matches:
-                experience['positions'].append(match.group(0).strip())
-        
-        return experience
-
-    def parse_resume(self, file_path: str) -> Dict:
-        """Main method to parse resume and extract all information"""
-        # Determine file type and extract text
-        file_extension = os.path.splitext(file_path)[1].lower()
-        
-        if file_extension == '.pdf':
-            text = self.extract_text_from_pdf(file_path)
-        elif file_extension == '.docx':
-            text = self.extract_text_from_docx(file_path)
-        elif file_extension == '.txt':
-            text = self.extract_text_from_txt(file_path)
+def score_resume(text):
+    text_lower = text.lower()
+    doc = nlp(text_lower)
+    found_keywords = set()
+    for keyword in REQUIRED_KEYWORDS:
+        if keyword in text_lower:
+            found_keywords.add(keyword)
         else:
-            raise ValueError(f"Unsupported file format: {file_extension}")
-        
-        if not text.strip():
-            raise ValueError("No text could be extracted from the file")
-        
-        # Extract all information
-        parsed_data = {
-            'raw_text': text,
-            'contact_info': self.extract_contact_info(text),
-            'skills': self.extract_skills(text),
-            'education': self.extract_education(text),
-            'experience': self.extract_experience(text),
-            'extracted_at': datetime.now(),
-            'file_name': os.path.basename(file_path)
-        }
-        
-        return parsed_data
+            for chunk in doc.noun_chunks:
+                if keyword in chunk.text.lower():
+                    found_keywords.add(keyword)
+                    break
+    missing_keywords = REQUIRED_KEYWORDS - found_keywords
+    match_count = len(found_keywords)
+    total_keywords = len(REQUIRED_KEYWORDS)
+    score = (match_count / total_keywords) * 100
+    return round(score, 2), found_keywords, missing_keywords
 
-class CandidateRanker:
-    def _init_(self):
-        pass
-    
-    def calculate_skill_match(self, candidate_skills: Dict, required_skills: List[str]) -> float:
-        """Calculate skill match percentage"""
-        if not required_skills:
-            return 0.0
-        
-        # Flatten candidate skills
-        all_candidate_skills = []
-        for skill_list in candidate_skills.values():
-            all_candidate_skills.extend([skill.lower() for skill in skill_list])
-        
-        # Calculate matches
-        matches = 0
-        for required_skill in required_skills:
-            if required_skill.lower() in all_candidate_skills:
-                matches += 1
-        
-        return (matches / len(required_skills)) * 100
+def check_sections(text):
+    text_lower = text.lower()
+    found = [s for s in EXPECTED_SECTIONS if s in text_lower]
+    missing = [s for s in EXPECTED_SECTIONS if s not in found]
+    return found, missing
 
-    def calculate_experience_score(self, candidate_experience: int, required_experience: int) -> float:
-        """Calculate experience match score"""
-        if required_experience == 0:
-            return 100.0
-        
-        if candidate_experience >= required_experience:
-            return 100.0
-        else:
-            return (candidate_experience / required_experience) * 100 * 0.8  # Penalty for insufficient experience
+def check_grammar(text):
+    matches = tool.check(text)
+    filtered = []
+    for match in matches:
+        ctx = match.context.lower()
+        if re.search(r"(https?://|\.com|@|github|linkedin|\.edu|\d{4})", ctx): continue
+        if any(section in ctx for section in EXPECTED_SECTIONS): continue
+        if match.context.strip().split()[0].istitle() and match.ruleId == "MORFOLOGIK_RULE_EN_US": continue
+        filtered.append(match)
+    suggestions = [{"message": m.message, "error": m.context} for m in filtered[:10]]
+    return len(filtered), suggestions
 
-    def rank_candidates(self, candidates: List[Dict], job_requirements: Dict) -> List[Dict]:
-        """Rank candidates based on job requirements"""
-        required_skills = job_requirements.get('skills', [])
-        required_experience = job_requirements.get('experience_years', 0)
-        
-        for candidate in candidates:
-            skill_score = self.calculate_skill_match(candidate['skills'], required_skills)
-            experience_score = self.calculate_experience_score(
-                candidate['experience']['years'], 
-                required_experience
-            )
-            
-            # Weighted overall score
-            overall_score = (skill_score * 0.7) + (experience_score * 0.3)
-            
-            candidate['scores'] = {
-                'skill_match': skill_score,
-                'experience_match': experience_score,
-                'overall_score': overall_score
-            }
-        
-        # Sort by overall score (descending)
-        return sorted(candidates, key=lambda x: x['scores']['overall_score'], reverse=True)
+# ---------------- GENERATIVE AI ---------------- #
+def rewrite_resume(text):
+    prompt = f"Rewrite this resume professionally and ATS-friendly:\n{text}\n"
+    inputs = tokenizer(prompt[:1500], return_tensors="pt").to(device)
+    outputs = model.generate(
+    **inputs,
+    max_new_tokens=180,
+    temperature=0.7,
+    top_p=0.9,
+    do_sample=True,
+    repetition_penalty=1.5   # increase penalty
+)
 
-# Initialize components
-resume_parser = ResumeParser() if nlp else None
-candidate_ranker = CandidateRanker()
+    return tokenizer.decode(outputs[0], skip_special_tokens=True)
 
-# Routes
+def generate_cover_letter(resume_text, job_description="", role="Software Developer Intern", company=""):
+    prompt = f"""
+Using the resume below, write a professional and ATS-friendly cover letter:
+
+Resume:
+{resume_text}
+
+Role: {role}
+Company: {company if company else '[Company Name]'}
+Job Description:
+{job_description}
+
+Cover letter requirements:
+- 3–5 paragraphs
+- Introduce yourself and the role
+- Highlight relevant skills, education, projects
+- Explain why you want to join the company
+- Conclude politely with a call to action
+"""
+    inputs = tokenizer(prompt[:1500], return_tensors="pt").to(device)
+    outputs = model.generate(
+        **inputs,
+        max_new_tokens=180,
+        temperature=0.7,
+        top_p=0.9,
+        do_sample=True,
+        repetition_penalty=1.5,
+        eos_token_id=tokenizer.eos_token_id
+    )
+
+    return tokenizer.decode(outputs[0], skip_special_tokens=True)
+
+
+# ---------------- ROUTES ---------------- #
 @app.route('/')
-def index():
-    return render_template('index.html')
+def home():
+    return render_template("landing.html")
 
-@app.route('/upload', methods=['POST'])
-def upload_resume():
-    """Upload and parse resume"""
-    if not resume_parser:
-        return jsonify({'error': 'NLP model not loaded'}), 500
-    
-    if 'resume' not in request.files:
-        return jsonify({'error': 'No resume file uploaded'}), 400
-    
-    file = request.files['resume']
-    if file.filename == '':
-        return jsonify({'error': 'No file selected'}), 400
-    
-    if file:
-        filename = secure_filename(file.filename)
-        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        file.save(file_path)
-        
+@app.route('/login', methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        email = request.form['email']
+        password = request.form['password']
+        user = users.get(email)
+        if user and user["password"] == password:
+            session['user'] = email
+            session['role'] = user["role"]
+            return redirect(url_for(user["role"]))
+        flash("Invalid credentials!")
+    return render_template("login.html")
+
+@app.route('/signup', methods=["GET", "POST"])
+def signup():
+    if request.method == "POST":
+        email = request.form['email']
+        password = request.form['password']
+        role = request.form['role']
+        if email in users:
+            flash("User already exists!")
+        else:
+            users[email] = {"password": password, "role": role}
+            flash("Signup successful. Please login.")
+            return redirect("/login")
+    return render_template("signup.html")
+
+@app.route('/student', methods=["GET", "POST"])
+def student():
+    if session.get("role") != "student":
+        return redirect("/login")
+    if request.method == "POST":
+        file = request.files['resume']
+        filename = file.filename.lower()
+        if filename.endswith('.txt'):
+            text = file.read().decode('utf-8')
+        elif filename.endswith('.pdf'):
+            text = extract_text_from_pdf(file)
+        else:
+            return render_template("student.html", error="Only .txt and .pdf allowed")
+        text = clean_resume_text(text)
+        keyword_score, matched, missing = score_resume(text)
+        grammar_errors, grammar_suggestions = check_grammar(text)
+        sections_found, sections_missing = check_sections(text)
+        grammar_score = 100 if grammar_errors == 0 else 90 if grammar_errors <= 3 else 75 if grammar_errors <= 7 else 60 if grammar_errors <= 10 else 50
+        section_score = (len(sections_found) / len(EXPECTED_SECTIONS)) * 100
+        final_score = round((keyword_score * 0.4) + (grammar_score * 0.25) + (section_score * 0.35), 2)
+        role = request.form.get("role", "Software Developer Intern")
+        company = request.form.get("company", "")
+        job_description = request.form.get("job_description", "")
         try:
-            # Parse resume
-            parsed_data = resume_parser.parse_resume(file_path)
-            
-            # Save to database
-            if db:
-                result = resumes_collection.insert_one(parsed_data)
-                parsed_data['_id'] = str(result.inserted_id)
-            
-            # Clean up uploaded file
-            os.remove(file_path)
-            
-            # Remove raw text from response for brevity
-            response_data = parsed_data.copy()
-            response_data.pop('raw_text', None)
-            
-            return jsonify({
-                'success': True,
-                'data': response_data,
-                'message': 'Resume parsed successfully'
-            })
-            
-        except Exception as e:
-            logger.error(f"Error parsing resume: {e}")
-            if os.path.exists(file_path):
-                os.remove(file_path)
-            return jsonify({'error': f'Error parsing resume: {str(e)}'}), 500
+            rewritten_resume = rewrite_resume(text)
+        except:
+            rewritten_resume = "Error generating rewritten resume"
+        try:
+            ai_cover_letter = generate_cover_letter(text, job_description, role, company)
+        except:
+            ai_cover_letter = "Error generating cover letter"
+        return render_template(
+            "student.html",
+            score=final_score,
+            matched=matched,
+            missing=missing,
+            sections_found=sections_found,
+            sections_missing=sections_missing,
+            grammar_errors=grammar_errors,
+            suggestions=grammar_suggestions,
+            rewritten_resume=rewritten_resume,
+            ai_cover_letter=ai_cover_letter,
+            role=role,
+            company=company,
+            job_description=job_description
+        )
+    return render_template("student.html")
+def process_resume(file, job_description, jd_keywords):
+    filename = file.filename.lower()
+    if filename.endswith('.txt'):
+        text = file.read().decode('utf-8')
+    elif filename.endswith('.pdf'):
+        text = extract_text_from_pdf(file)
+    else:
+        return None
 
-@app.route('/create_job', methods=['POST'])
-def create_job():
-    """Create a new job posting with requirements"""
-    data = request.get_json()
-    
-    if not data:
-        return jsonify({'error': 'No data provided'}), 400
-    
-    job_data = {
-        'title': data.get('title'),
-        'description': data.get('description'),
-        'skills': data.get('skills', []),
-        'experience_years': data.get('experience_years', 0),
-        'education_requirements': data.get('education_requirements', []),
-        'created_at': datetime.now()
+    text = clean_resume_text(text)
+    score, matched_keywords, missing_keywords = score_resume(text)
+    # You can also compare with jd_keywords to see relevance
+    jd_matches = jd_keywords.intersection(set(text.lower().split()))
+    return {
+        "filename": file.filename,
+        "score": score,
+        "matched_keywords": matched_keywords,
+        "missing_keywords": missing_keywords,
+        "jd_matches": jd_matches
     }
-    
-    if db:
-        result = jobs_collection.insert_one(job_data)
-        job_data['_id'] = str(result.inserted_id)
-    
-    return jsonify({
-        'success': True,
-        'data': job_data,
-        'message': 'Job created successfully'
-    })
 
-@app.route('/rank_candidates/<job_id>')
-def rank_candidates_for_job(job_id):
-    """Rank all candidates for a specific job"""
-    if not db:
-        return jsonify({'error': 'Database not connected'}), 500
-    
-    try:
-        # Get job requirements
-        job = jobs_collection.find_one({'_id': ObjectId(job_id)})
-        if not job:
-            return jsonify({'error': 'Job not found'}), 404
-        
-        # Get all candidates
-        candidates = list(resumes_collection.find())
-        
-        if not candidates:
-            return jsonify({'error': 'No candidates found'}), 404
-        
-        # Convert ObjectId to string for JSON serialization
-        for candidate in candidates:
-            candidate['_id'] = str(candidate['_id'])
-            candidate.pop('raw_text', None)  # Remove raw text for response
-        
-        # Rank candidates
-        ranked_candidates = candidate_ranker.rank_candidates(candidates, job)
-        
-        return jsonify({
-            'success': True,
-            'job': {
-                '_id': str(job['_id']),
-                'title': job['title'],
-                'skills': job['skills'],
-                'experience_years': job['experience_years']
-            },
-            'candidates': ranked_candidates,
-            'total_candidates': len(ranked_candidates)
-        })
-        
-    except Exception as e:
-        logger.error(f"Error ranking candidates: {e}")
-        return jsonify({'error': f'Error ranking candidates: {str(e)}'}), 500
+@app.route('/recruiter', methods=["GET", "POST"])
+def recruiter():
+    if session.get("role") != "recruiter":
+        return redirect("/login")
+    candidates = []
+    if request.method == "POST":
+        files = request.files.getlist("resumes")
+        job_description = request.form.get("job_description", "").lower()
+        jd_doc = nlp(job_description)
+        jd_keywords = set([token.lemma_ for token in jd_doc if token.is_alpha and not token.is_stop])
+        with ThreadPoolExecutor() as executor:
+            results = list(executor.map(lambda f: process_resume(f, job_description, jd_keywords), files))
+        candidates = [res for res in results if res]
+        candidates.sort(key=lambda c: c['score'], reverse=True)
+    return render_template("recruiter.html", candidates=candidates)
 
-@app.route('/candidates')
-def get_all_candidates():
-    """Get all parsed candidates"""
-    if not db:
-        return jsonify({'error': 'Database not connected'}), 500
-    
-    try:
-        candidates = list(resumes_collection.find())
-        
-        # Convert ObjectId to string and remove raw text
-        for candidate in candidates:
-            candidate['_id'] = str(candidate['_id'])
-            candidate.pop('raw_text', None)
-        
-        return jsonify({
-            'success': True,
-            'candidates': candidates,
-            'total': len(candidates)
-        })
-        
-    except Exception as e:
-        logger.error(f"Error fetching candidates: {e}")
-        return jsonify({'error': f'Error fetching candidates: {str(e)}'}), 500
 
-@app.route('/jobs')
-def get_all_jobs():
-    """Get all job postings"""
-    if not db:
-        return jsonify({'error': 'Database not connected'}), 500
-    
-    try:
-        jobs = list(jobs_collection.find())
-        
-        # Convert ObjectId to string
-        for job in jobs:
-            job['_id'] = str(job['_id'])
-        
-        return jsonify({
-            'success': True,
-            'jobs': jobs,
-            'total': len(jobs)
-        })
-        
-    except Exception as e:
-        logger.error(f"Error fetching jobs: {e}")
-        return jsonify({'error': f'Error fetching jobs: {str(e)}'}), 500
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect("/")
 
-@app.route('/candidate/<candidate_id>')
-def get_candidate_details(candidate_id):
-    """Get detailed information about a specific candidate"""
-    if not db:
-        return jsonify({'error': 'Database not connected'}), 500
-    
-    try:
-        candidate = resumes_collection.find_one({'_id': ObjectId(candidate_id)})
-        if not candidate:
-            return jsonify({'error': 'Candidate not found'}), 404
-        
-        candidate['_id'] = str(candidate['_id'])
-        
-        return jsonify({
-            'success': True,
-            'candidate': candidate
-        })
-        
-    except Exception as e:
-        logger.error(f"Error fetching candidate details: {e}")
-        return jsonify({'error': f'Error fetching candidate details: {str(e)}'}), 500
-
-@app.errorhandler(413)
-def too_large(e):
-    return jsonify({'error': 'File too large. Maximum size is 16MB.'}), 413
-
+# ---------------- RUN APP ---------------- #
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=True)
