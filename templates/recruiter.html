@@ -1,158 +1,255 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Recruiter Dashboard - AIpplicant</title>
-    <style>
-        body {
-            font-family: 'Segoe UI', sans-serif;
-            background: #f4f8fb;
-            margin: 0;
-            padding: 0;
-        }
+<meta charset="UTF-8">
+<title>Recruiter Resume Analyzer</title>
+<style>
+    body {
+        font-family: 'Segoe UI', sans-serif;
+        background: #f4f8fb;
+        margin: 0;
+        padding: 0;
+    }
 
-        .header {
-            background: #004aad;
-            color: white;
-            padding: 20px;
-            text-align: center;
-            position: relative;
-        }
+    .header {
+        background: #004aad;
+        color: white;
+        padding: 40px 20px 30px;
+        text-align: center;
+        position: relative;
+    }
 
-        .logout {
+    .header h1 {
+        margin: 0;
+        font-size: 2em;
+    }
+
+    .container {
+        max-width: 900px;
+        margin: 40px auto;
+        padding: 30px;
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+    }
+
+    h2 {
+        text-align: center;
+        color: #004aad;
+        margin-bottom: 25px;
+    }
+
+    form label {
+        font-weight: bold;
+        margin-top: 10px;
+        display: block;
+        color: #004aad;
+    }
+
+    textarea, input[type="file"] {
+        width: 100%;
+        padding: 12px;
+        margin-top: 8px;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        font-size: 14px;
+        box-sizing: border-box;
+    }
+
+    textarea:focus, input:focus {
+        outline: none;
+        border-color: #5ca0d3;
+        box-shadow: 0 0 5px rgba(92,160,211,0.4);
+    }
+
+    input[type="file"] {
+        border: 2px dashed #004aad;
+        background: #f9f9f9;
+        cursor: pointer;
+    }
+
+    button {
+        background: #004aad;
+        color: white;
+        padding: 12px 28px;
+        border: none;
+        border-radius: 8px;
+        font-size: 16px;
+        cursor: pointer;
+        margin: 20px auto 0;
+        display: block;
+        transition: background 0.3s ease;
+    }
+
+    button:hover {
+        background: #00347a;
+    }
+
+    ul#file-list {
+        margin-top: 10px;
+        list-style: none;
+        padding: 0;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    ul#file-list li {
+        background: #e0f0ff;
+        padding: 6px 10px;
+        border-radius: 20px;
+        font-size: 13px;
+        color: #005b8f;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+
+    table th {
+        background: #004aad;
+        color: white;
+        padding: 12px;
+        text-align: left;
+    }
+
+    table td {
+        padding: 10px;
+        border-bottom: 1px solid #ddd;
+        color: #333;
+    }
+
+    tr:hover {
+        background: #eef4ff;
+    }
+
+    /* Collapsible sections (optional for future use) */
+    .collapsible {
+        background-color: #004aad;
+        color: white;
+        cursor: pointer;
+        padding: 12px 20px;
+        width: 100%;
+        border: none;
+        outline: none;
+        font-size: 1.1em;
+        font-weight: 600;
+        border-radius: 8px;
+        margin-bottom: 8px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        user-select: none;
+        transition: background 0.3s ease;
+    }
+
+    .collapsible:hover {
+        background-color: #00347a;
+    }
+.logout {
             position: absolute;
             top: 20px;
             right: 30px;
             color: white;
             text-decoration: none;
             font-weight: bold;
-            height: 30;
-            width: 30;
-        }
+            font: size 25px;
         }
 
         .logout:hover {
             text-decoration: underline;
         }
 
+    .content-collapsible {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.4s ease;
+        background: #eef4ff;
+        padding: 0 20px;
+        border-radius: 0 0 8px 8px;
+        margin-bottom: 15px;
+    }
+
+    .content-collapsible ul {
+        list-style: square;
+        padding-left: 20px;
+        color: #444;
+        margin: 15px 0;
+    }
+
+    .content-collapsible li {
+        margin-bottom: 6px;
+    }
+
+    @media (max-width: 600px) {
         .container {
-            max-width: 900px;
-            margin: 40px auto;
-            padding: 30px;
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            padding: 20px;
+            margin: 20px auto;
         }
-
-        h2 {
-            text-align: center;
-            color: #004aad;
-        }
-
-        input[type="file"] {
-            display: none;
-        }
-
-        .custom-upload {
-            border: 2px dashed #004aad;
-            background-color: #eef4ff;
-            padding: 30px;
-            text-align: center;
-            border-radius: 10px;
-            cursor: pointer;
-        }
-
-        .custom-upload:hover {
-            background-color: #dcecff;
-        }
-
-        button {
-            background: #004aad;
-            color: white;
-            padding: 12px 24px;
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            cursor: pointer;
-            margin-top: 20px;
-        }
-
-        button:hover {
-            background: #00347a;
-        }
-
-        table {
-            width: 100%;
-            margin-top: 30px;
-            border-collapse: collapse;
-        }
-
-        th, td {
-            padding: 12px 15px;
-            border-bottom: 1px solid #ccc;
-            text-align: left;
-        }
-
-        th {
-            background-color: #f1f4f9;
-            color: #333;
-        }
-
-        .highlight {
-            background-color: #e6fff2;
-        }
-    </style>
+    }
+</style>
 </head>
 <body>
 
 <div class="header">
     <a class="logout" href="/logout">Logout</a>
-    <h1>AIpplicant Recruiter Dashboard</h1>
-    <p>Upload and Analyze Candidate Resumes</p>
+    <h1>Recruiter Resume Analyzer</h1>
+    <p>Upload resumes and analyze them against job descriptions</p>
 </div>
 
 <div class="container">
-    <h2>Upload Resumes (PDF or TXT)</h2>
-    <form method="POST" action="/recruiter" enctype="multipart/form-data">
-        <label class="custom-upload">
-            Click to select multiple resumes
-            <input type="file" name="resumes" multiple required onchange="updateFileNames(this)">
-            <p id="file-names"></p>
-        </label>
-        <button type="submit">Analyze Resumes</button>
+    <h2>Upload Job Description & Resumes</h2>
+    <form method="POST" enctype="multipart/form-data">
+        <label>Job Description:</label>
+        <textarea name="job_description" rows="4" placeholder="Paste the job description here"></textarea>
+
+        <label>Upload Resumes (.pdf / .txt) - Multiple Allowed:</label>
+        <input type="file" name="resumes" id="resume-input" multiple required>
+        <ul id="file-list"></ul>
+
+        <button type="submit">Analyze All</button>
     </form>
 
     {% if candidates %}
-    <h2>Top Candidates</h2>
-    <table>
-        <thead>
+    <div class="results">
+        <h3>Analysis Results</h3>
+        <table>
             <tr>
-                <th>Name</th>
-                <th>Score (%)</th>
-                <th>Matched Keywords</th>
+                <th>Resume Name</th>
+                <th>Score</th>
+                
+                <th>Matched JD Keywords</th>
                 <th>Grammar Errors</th>
             </tr>
-        </thead>
-        <tbody>
             {% for c in candidates %}
-            <tr class="{% if c.score > 80 %}highlight{% endif %}">
+            <tr>
                 <td>{{ c.name }}</td>
                 <td>{{ c.score }}</td>
-                <td>{{ c.matched_keywords | join(', ') }}</td>
+                <!-- <td>{{ ", ".join(c.matched_keywords) }}</td> -->
+                <td>{{ ", ".join(c.matched_jd_keywords) }}</td>
                 <td>{{ c.grammar_errors }}</td>
             </tr>
             {% endfor %}
-        </tbody>
-    </table>
+        </table>
+    </div>
     {% endif %}
 </div>
 
 <script>
-    function updateFileNames(input) {
-        const names = Array.from(input.files).map(f => f.name).join(', ');
-        document.getElementById('file-names').textContent = names;
+document.getElementById('resume-input').addEventListener('change', function() {
+    const fileList = document.getElementById('file-list');
+    fileList.innerHTML = '';
+    for (let file of this.files) {
+        let li = document.createElement('li');
+        li.textContent = file.name;
+        fileList.appendChild(li);
     }
+});
 </script>
-
 </body>
 </html>
