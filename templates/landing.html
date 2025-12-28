@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
+    <meta charset="UTF-8" />
     <title>AIpplicant - Resume Screening System</title>
     <style>
         body {
@@ -12,11 +12,48 @@
             color: #333;
         }
 
+        /* ====== Navigation Header ====== */
+        nav {
+            background-color: #004aad;
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 30px;
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        nav .brand {
+            font-size: 1.8em;
+            font-weight: bold;
+            letter-spacing: 1px;
+            cursor: pointer;
+        }
+
+        nav .menu a {
+            color: white;
+            margin-left: 20px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: color 0.3s ease;
+        }
+
+        nav .menu a:hover {
+            color: #a9c1f7;
+        }
+
+        /* Push content below nav */
         .header {
             background: #004aad;
             color: white;
-            padding: 40px 20px;
+            padding: 120px 20px 40px; /* Increased top padding to avoid nav overlap */
             text-align: center;
+            position: relative;
+            z-index: 1;
         }
 
         .header h1 {
@@ -66,14 +103,89 @@
             background: #00347a;
         }
 
+        /* ===== Interactive Section ===== */
+        .interactive-section {
+            max-width: 1100px;
+            margin: 60px auto 80px;
+            display: flex;
+            gap: 40px;
+            padding: 0 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            flex: 1 1 400px;
+            max-width: 480px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 25px 20px 40px;
+            cursor: pointer;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            text-align: center;
+        }
+
+        .card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 35px rgba(0,0,0,0.15);
+        }
+
+        .card img {
+            width: 240px;
+            height: 240px;
+            object-fit: contain;
+            margin-bottom: 20px;
+            border-radius: 50%;
+            background: #e9f0ff;
+            padding: 20px;
+        }
+
+        .card h3 {
+            color: #004aad;
+            margin-bottom: 15px;
+            font-size: 1.5em;
+        }
+
+        .card p {
+            font-size: 1.1em;
+            color: #555;
+            line-height: 1.5;
+        }
+
+        /* Footer */
         .footer {
             text-align: center;
             padding: 20px;
             font-size: 0.9em;
             color: #666;
+            background: #f0f2f7;
+            margin-top: 60px;
+        }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            .interactive-section {
+                flex-direction: column;
+                max-width: 90%;
+            }
         }
 
         @media (max-width: 600px) {
+            nav {
+                flex-direction: column;
+                gap: 10px;
+                padding: 15px 20px;
+            }
+
+            nav .menu a {
+                margin-left: 0;
+                margin-right: 15px;
+            }
+
             .header h1 {
                 font-size: 2em;
             }
@@ -82,10 +194,69 @@
                 padding: 10px 20px;
                 font-size: 0.9em;
             }
+
+            .card {
+                max-width: 100%;
+            }
         }
+.accordion-header {
+    background: #004aad;
+    color: white;
+    cursor: pointer;
+    padding: 15px 20px;
+    width: 100%;
+    border: none;
+    outline: none;
+    text-align: left;
+    font-size: 1.2em;
+    font-weight: 600;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    transition: background 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+  }
+
+  .accordion-icon {
+    width: 28px;
+    height: 28px;
+    filter: invert(1);
+    flex-shrink: 0;
+  }
+
+  .accordion-header:hover,
+  .accordion-header.active {
+    background: #00347a;
+  }
+
+  .accordion-content {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.35s ease;
+    background: #e9f0ff;
+    padding: 0 20px;
+    border-radius: 0 0 8px 8px;
+    margin-bottom: 20px;
+  }
+
+  .accordion-content p {
+    margin: 15px 0;
+    color: #333;
+    font-size: 1em;
+  }
     </style>
 </head>
 <body>
+
+    <nav>
+        <div class="brand">AIpplicant</div>
+        <div class="menu">
+            <a href="/login">Sign In</a>
+            <a href="/signup">Get Started</a>
+            <a href="#interactive">Who is AIpplicant For?</a>
+        </div>
+    </nav>
 
     <div class="header">
         <h1>AIpplicant</h1>
@@ -109,9 +280,130 @@
         </div>
     </div>
 
-    <div class="footer">
-        &copy; 2025 AIpplicant. Built with ❤️ for students and recruiters.
+    <!-- Interactive Section -->
+    <section id="interactive" class="interactive-section" aria-label="Who is AIpplicant For">
+        <div class="card" tabindex="0" role="button" aria-pressed="false" onclick="window.location.href='/recruiter'">
+            <img src="https://agrimhfc.com/wp-content/uploads/2022/11/co-applicant-in-home-loan.png" alt="Recruiter icon" />
+            <h3>For Recruiters</h3>
+            <p>
+                Automate your hiring with AIpplicant. Quickly screen and score resumes using advanced ATS algorithms,
+                reduce bias, and identify top talent with detailed insights — saving you time and effort.
+            </p>
+        </div>
+        <div class="card" tabindex="0" role="button" aria-pressed="false" onclick="window.location.href='/student'">
+            <img src="https://www.resumeprofessionalwriters.com/wp-content/uploads/2025/06/how-to-right-a-resume.jpg" alt="Student icon" />
+            <h3>For Students</h3>
+            <p>
+                Get your resume ATS-ready with AIpplicant’s detailed scoring and feedback. Learn how to improve your skills and
+                showcase your education and experience to stand out in today’s competitive job market.
+            </p>
+        </div>
+    </section>
+<section class="details-section" style="max-width: 900px; margin: 40px auto 80px; padding: 0 20px;">
+  <h2 style="color:#004aad; text-align:center; margin-bottom: 30px;">How AIpplicant Works</h2>
+
+  <div class="accordion">
+
+    <button class="accordion-header">
+      <img src="https://cdn-icons-png.flaticon.com/512/2917/2917990.png" alt="Resume icon" class="accordion-icon" />
+      Resume Parsing & Scoring
+    </button>
+    <div class="accordion-content">
+      <p>Your resume is parsed and analyzed for keywords, formatting, skills, and experience to generate an ATS-friendly score.</p>
     </div>
+
+    <button class="accordion-header">
+      <img src="https://cdn-icons-png.flaticon.com/512/1828/1828817.png" alt="Feedback icon" class="accordion-icon" />
+      Automated Feedback
+    </button>
+    <div class="accordion-content">
+      <p>Receive actionable insights and suggestions to improve your resume and boost your chances of getting noticed by recruiters.</p>
+    </div>
+
+    <button class="accordion-header">
+      <img src="https://cdn-icons-png.flaticon.com/512/748/748113.png" alt="Bias reduction icon" class="accordion-icon" />
+      Bias Reduction
+    </button>
+    <div class="accordion-content">
+      <p>Our AI system helps recruiters filter candidates objectively, minimizing unconscious bias in hiring decisions.</p>
+    </div>
+
+    <button class="accordion-header">
+      <img src="https://cdn-icons-png.flaticon.com/512/1828/1828919.png" alt="Resources icon" class="accordion-icon" />
+      Reference Resources
+    </button>
+    <div class="accordion-content">
+      <p>Access tips, templates, and examples to build a professional resume tailored for industry standards.</p>
+    </div>
+  </div>
+
+  <p style="font-size: 1.1em; color: #444; line-height: 1.6; margin-top: 30px;">
+    Whether you are a student preparing your first professional resume or a recruiter aiming to hire the best talent efficiently,
+    AIpplicant bridges the gap with smart, reliable, and transparent screening.
+  </p>
+</section>
+
+    <footer style="background:#f0f2f7; padding: 40px 20px; color: #555; font-family: 'Segoe UI', sans-serif;">
+
+  <div style="max-width: 900px; margin: auto; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 30px;">
+
+    <div style="flex: 1 1 250px; min-width: 250px;">
+      <h3 style="color: #004aad; margin-bottom: 15px;">About AIpplicant</h3>
+      <p style="line-height: 1.6;">
+        AIpplicant is a cutting-edge AI-powered resume screening platform designed to simplify hiring and empower job seekers.
+        We combine advanced ATS algorithms with personalized feedback to improve recruitment efficiency and career success.
+      </p>
+    </div>
+
+    <div style="flex: 1 1 150px; min-width: 150px;">
+      <h3 style="color: #004aad; margin-bottom: 15px;">Quick Links</h3>
+      <ul style="list-style: none; padding-left: 0; line-height: 2;">
+        <li><a href="/login" style="color:#004aad; text-decoration:none;">Sign In</a></li>
+        <li><a href="/signup" style="color:#004aad; text-decoration:none;">Get Started</a></li>
+        <li><a href="#interactive" style="color:#004aad; text-decoration:none;">Who is AIpplicant For?</a></li>
+        <li><a href="/faq" style="color:#004aad; text-decoration:none;">FAQ</a></li>
+      </ul>
+    </div>
+
+    <div style="flex: 1 1 200px; min-width: 200px;">
+      <h3 style="color: #004aad; margin-bottom: 15px;">Contact Us</h3>
+      <p>Email: <a href="mailto:support@aipplicant.com" style="color:#004aad; text-decoration:none;">support@aipplicant.com</a></p>
+      <p>Phone: <a href="tel:+1234567890" style="color:#004aad; text-decoration:none;">+1 (234) 567-890</a></p>
+      <p>Follow us:</p>
+      <div style="display: flex; gap: 15px; font-size: 1.4em;">
+        <a href="#" aria-label="Facebook" style="color:#004aad; text-decoration:none;">&#x25B6;FB</a>
+        <a href="#" aria-label="Twitter" style="color:#004aad; text-decoration:none;">&#x25B6;TW</a>
+        <a href="#" aria-label="LinkedIn" style="color:#004aad; text-decoration:none;">&#x25B6;LI</a>
+      </div>
+    </div>
+
+  </div>
+
+  <hr style="margin: 40px auto; max-width: 900px; border-color: #d3d6db;">
+
+  <p style="text-align: center; font-size: 0.9em; color: #888;">
+    &copy; 2025 AIpplicant. Built with ❤️ for students and recruiters. All rights reserved.
+  </p>
+</footer>
+<script>
+  document.querySelectorAll('.accordion-header').forEach(button => {
+    button.addEventListener('click', () => {
+      const currentlyActive = document.querySelector('.accordion-header.active');
+      if (currentlyActive && currentlyActive !== button) {
+        currentlyActive.classList.remove('active');
+        currentlyActive.nextElementSibling.style.maxHeight = null;
+      }
+
+      button.classList.toggle('active');
+      const content = button.nextElementSibling;
+      if (button.classList.contains('active')) {
+        content.style.maxHeight = content.scrollHeight + 'px';
+      } else {
+        content.style.maxHeight = null;
+      }
+    });
+  });
+</script>
 
 </body>
 </html>
